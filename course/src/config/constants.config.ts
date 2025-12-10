@@ -1,0 +1,2 @@
+export const SERVICE_NAME = 'COURSE'
+export const SESSION_TOKEN_VALIDITY_MINUTES = 10
