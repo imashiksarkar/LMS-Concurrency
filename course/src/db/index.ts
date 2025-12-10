@@ -32,3 +32,17 @@ export const USER = new Map<ID, IUser>()
 export const SESSION = new Set<string>()
 
 export const generateID = (): ID => crypto.randomUUID()
+
+export interface ICourse {
+  id: ID
+  title: string
+  content: string
+  price: number
+  seats: number
+  instructorId: ID
+  version: number
+  updatedAt: Date
+  createdAt: Date
+}
+
+export const COURSE = new Map<ID, ICourse>()
