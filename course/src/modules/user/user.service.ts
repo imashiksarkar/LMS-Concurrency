@@ -1,6 +1,6 @@
 import { ID, USER } from '@/db'
-import { CreateUserDto } from './user.dtos'
 import { exres } from '@/libs'
+import { CreateUserDto } from './user.dtos'
 
 export default class UserService {
   static readonly createUser = async (id: ID, payload: CreateUserDto) => {
@@ -13,6 +13,14 @@ export default class UserService {
     })
 
     return USER.get(id)!
+  }
+
+  static readonly getSingleUser = async (userId: ID) => {
+    const user = USER.get(userId)
+
+    if (!user) throw exres().error(404).message('User not found').exec()
+
+    return user
   }
 
   private static readonly updateUser = async (
