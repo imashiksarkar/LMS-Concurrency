@@ -1,1 +1,2 @@
-export * as constants  from './constants.config'
+export * as constants from './constants.config'
+export { default as env } from './env.config'
