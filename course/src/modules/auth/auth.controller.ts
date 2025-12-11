@@ -35,10 +35,13 @@ class AuthController {
       catchAsync(async (req: Request, res: Response) => {
         const payload = AuthDtos.signUpDto.parse(req.body)
 
-        await this.authService.signUp(payload)
+        const user = await this.authService.signUp(payload)
 
         const r = exres()
           .success(201)
+          .data({
+            userId: user.id,
+          })
           .message('User created successfully')
           .exec()
 

@@ -1,10 +1,9 @@
-import { ID } from '@/db'
 import { catchAsync, exres } from '@/libs'
 import { requireAuth } from '@/middleware'
 import { ReqWithUser } from '@/middleware/requireAuth.middleware'
 import { Request, Response, Router } from 'express'
-import UserService from './user.service'
 import * as UserDtos from './user.dtos'
+import UserService from './user.service'
 
 class UserController {
   private static readonly prefix: string = '/users'
@@ -32,7 +31,7 @@ class UserController {
 
   /* Hare are all the routes */
   private static readonly getProfile = async (path = this.path('/profile')) => {
-    this.router.post(
+    this.router.get(
       path,
       requireAuth(),
       catchAsync(async (req: ReqWithUser, res: Response) => {
@@ -50,7 +49,7 @@ class UserController {
   private static readonly getUserProfile = async (
     path = this.path('/:userId')
   ) => {
-    this.router.post(
+    this.router.get(
       path,
       catchAsync(async (req: Request, res: Response) => {
         const { userId } = UserDtos.getUserDto.parse(req.params)
