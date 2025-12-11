@@ -1,6 +1,6 @@
 import crypto from 'node:crypto'
 
-export type ID = string
+export type ID = crypto.UUID
 
 export enum Role {
   USER = 'user',
@@ -22,6 +22,14 @@ export interface IUser {
   lastName: string
   updatedAt: Date
   createdAt: Date
+}
+
+export interface ISession {
+  sub: ID
+  email: string
+  role: Role
+  expiresAt: number
+  salt: crypto.UUID
 }
 
 export const AUTH_EMAIL_INDEX = new Map<string, ID>()

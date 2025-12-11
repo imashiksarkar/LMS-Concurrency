@@ -2,6 +2,7 @@ import { exres } from '@/libs'
 import modules from '@/modules'
 
 import express, { type Request, type Response } from 'express'
+import { errorHandler, notFoundHandler } from './middleware'
 
 export default async () => {
   const app = express()
@@ -25,6 +26,9 @@ export default async () => {
   })
 
   app.use(modules)
+
+  app.use(notFoundHandler())
+  app.use(errorHandler())
 
   return app
 }

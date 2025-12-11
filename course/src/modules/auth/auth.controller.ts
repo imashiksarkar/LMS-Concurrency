@@ -1,7 +1,8 @@
 import { Request, Response, Router } from 'express'
-import { catchAsync } from '@/libs'
+import { catchAsync, exres } from '@/libs'
 import AuthService from './auth.service'
 import * as AuthDtos from './auth.dtos'
+import requireAuth, { ReqWithUser } from '@/middleware/requireAuth.middleware'
 
 class AuthController {
   private static readonly prefix: string = '/auth'
@@ -34,9 +35,45 @@ class AuthController {
       catchAsync(async (req: Request, res: Response) => {
         const payload = AuthDtos.signUpDto.parse(req.body)
 
-        const user = await this.authService.signUp(payload)
+        await this.authService.signUp(payload)
 
-        res.status(201).json(user)
+        const r = exres()
+          .success(201)
+          .message('User created successfully')
+          .exec()
+
+        res.status(r.code).json(r)
+      })
+    )
+  }
+
+  private static readonly signIn = async (path = this.path('/signin')) => {
+    this.router.post(
+      path,
+      catchAsync(async (req: Request, res: Response) => {
+        const payload = AuthDtos.signInDto.parse(req.body)
+
+        const user = await this.authService.signIn(payload)
+
+        const r = exres().success(200).data(user).exec()
+        res.status(r.code).json(r)
+      })
+    )
+  }
+
+  private static readonly signOut = async (path = this.path('/logout')) => {
+    this.router.post(
+      path,
+      requireAuth(),
+      catchAsync(async (req: ReqWithUser, res: Response) => {
+        const sessionToken = (req.headers as Record<string, string>)[
+          'x-session'
+        ]?.trim()
+
+        await this.authService.signOut(sessionToken)
+
+        const r = exres().success(200).message('Signed out successfully').exec()
+        res.status(r.code).json(r)
       })
     )
   }

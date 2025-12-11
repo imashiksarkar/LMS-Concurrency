@@ -16,14 +16,17 @@
   "packageManager": "pnpm@11.0.0-dev.1005+sha512.91f84a392eea348ea4852a182912d2520273a4336f933b78cc44bc931eb999923c097e9433a9b355adc1f725725ea99082fc9f032a559df832632e764c92c798",
   "dependencies": {
     "express": "^5.1.0",
+    "supertest": "^7.1.4",
     "winston": "^3.18.3",
     "winston-daily-rotate-file": "^5.0.0",
     "zod": "^4.1.12"
   },
   "devDependencies": {
+    "@faker-js/faker": "^8.4.1",
     "@types/express": "^5.0.5",
     "@types/jest": "^30.0.0",
     "@types/node": "^24.10.1",
+    "@types/supertest": "^6.0.3",
     "jest": "^30.2.0",
     "ts-jest": "^29.4.6",
     "tsc-alias": "^1.8.16",

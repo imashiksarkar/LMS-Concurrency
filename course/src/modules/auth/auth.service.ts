@@ -4,6 +4,8 @@ import {
   AUTH_EMAIL_INDEX,
   generateID,
   IAuth,
+  ID,
+  ISession,
   IUser,
   Role,
   SESSION,
@@ -43,13 +45,13 @@ export default class AuthService {
     if (!(user.email === payload.email && user.password === payload.password))
       throw exres().error(401).message('Invalid credentials').exec()
 
-    const sessionPayload = {
-      id: user.id,
+    const sessionPayload: ISession = {
+      sub: user.id,
       email: user.email,
       role: user.role,
       expiresAt:
         Date.now() + constants.SESSION_TOKEN_VALIDITY_MINUTES * 60 * 1000,
-      solt: crypto.randomUUID(),
+      salt: crypto.randomUUID(),
     }
 
     const session = Buffer.from(JSON.stringify(sessionPayload)).toString(
@@ -59,6 +61,13 @@ export default class AuthService {
     SESSION.add(session)
 
     return { session }
+  }
+
+  static readonly signOut = async (sessionToken: string) => {
+    const isLoggedOut = SESSION.delete(sessionToken)
+
+    if (!isLoggedOut)
+      throw exres().error(401).message('Invalid session token').exec()
   }
 
   private static readonly searchByEmail = async (

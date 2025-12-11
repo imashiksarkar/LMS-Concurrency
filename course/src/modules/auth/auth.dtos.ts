@@ -8,7 +8,7 @@ const createAuthDto = z.object({
   role: z.enum(Role).optional().default(Role.USER),
 })
 
-const signInDto = z.object({
+export const signInDto = z.object({
   email: z.email(),
   password: z.string().min(6).max(32),
 })
