@@ -1,3 +1,4 @@
+import { ID } from '@/db'
 import z from 'zod'
 
 export const createCourseDto = z.object({

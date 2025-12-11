@@ -19,7 +19,7 @@ const getSignUpPayload = () => ({
   role: Role.USER,
 })
 
-describe.only('User Service', () => {
+describe('User Module', () => {
   describe('- E2E', () => {
     let app: Express
     beforeAll(async () => {

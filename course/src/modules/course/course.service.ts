@@ -1,18 +1,23 @@
-import { COURSE, generateID, ICourse, ID } from '@/db'
+import { Mutex } from 'async-mutex'
+import { COURSE, generateID, ICourse, ID, Reservation } from '@/db'
+import { exres } from '@/libs'
 import {
   CreateCourseDto,
   GetCoursesDto,
   UpdateCourseDto,
   UpdateCoursePriceDto,
 } from './course.dtos'
-import { exres } from '@/libs'
+import { constants } from '@/config'
 
 interface GetCoursesOptions extends GetCoursesDto {
   instructorId?: ID
 }
 
 export default class CourseService {
-  private static readonly createCourse = async (
+  private static readonly mutex = new Mutex()
+  private static readonly reservation = new Reservation()
+
+  static readonly createCourse = async (
     instructorId: ID,
     payload: CreateCourseDto
   ): Promise<ICourse> => {
@@ -30,7 +35,7 @@ export default class CourseService {
     return course.get(id)!
   }
 
-  private static readonly getSingleCourse = async (courseId: ID) => {
+  static readonly getSingleCourse = async (courseId: ID) => {
     const course = COURSE.get(courseId)
 
     if (!course) throw exres().error(404).message('Course not found').exec()
@@ -45,7 +50,6 @@ export default class CourseService {
 
     return Array.from(COURSE.values()).splice(options.skip || 0, options.limit)
   }
-
   // get own courses
   private static readonly getCoursesAsInstructor = async (
     options: GetCoursesOptions
@@ -61,7 +65,7 @@ export default class CourseService {
     return courses.splice(options.skip || 0, options.limit)
   }
 
-  private static readonly getCourses = async (options: GetCoursesOptions) => {
+  static readonly getCourses = async (options: GetCoursesOptions) => {
     const courses = await Promise.all([
       this.getCoursesAsAnonymous(options),
       this.getCoursesAsInstructor(options),
@@ -73,13 +77,15 @@ export default class CourseService {
     return courses
   }
 
-  private static readonly updateCourse = async (
+  static readonly updateCourse = async (
     courseId: ID,
+    instructorId: ID,
     payload: UpdateCourseDto
   ): Promise<ICourse> => {
     const course = COURSE.get(courseId)
-
     if (!course) throw exres().error(404).message('Course not found').exec()
+    else if (course.instructorId !== instructorId)
+      throw exres().error(403).message('Not allowed').exec()
 
     COURSE.set(courseId, {
       ...course,
@@ -91,13 +97,15 @@ export default class CourseService {
     return COURSE.get(courseId)!
   }
 
-  private static readonly updateCoursePrice = async (
+  static readonly updateCoursePrice = async (
     courseId: ID,
+    instractorId: ID,
     payload: UpdateCoursePriceDto
   ): Promise<ICourse> => {
     const course = COURSE.get(courseId)
-
     if (!course) throw exres().error(404).message('Course not found').exec()
+    else if (course.instructorId !== instractorId)
+      throw exres().error(403).message('Not allowed').exec()
 
     COURSE.set(courseId, {
       ...course,
@@ -107,5 +115,26 @@ export default class CourseService {
     })
 
     return COURSE.get(courseId)!
+  }
+
+  static readonly reserveCourse = async (courseId: ID, userId: ID) => {
+    return await this.mutex.runExclusive(async () => {
+      const course = COURSE.get(courseId)
+      if (!course) throw exres().error(404).message('Course not found').exec()
+
+      for (let attempt = 0; attempt < constants.BOOKING_ATTEMPTS; attempt++) {
+        const isReserved = await this.reservation.reserve(courseId, userId)
+
+        if (isReserved) return isReserved
+
+        await this.delay(10) // wait 10ms
+      }
+
+      throw exres().error(500).message('Failed to reserve course').exec()
+    })
+  }
+
+  private static readonly delay = async (ms: number) => {
+    return new Promise((resolve) => setTimeout(resolve, ms))
   }
 }

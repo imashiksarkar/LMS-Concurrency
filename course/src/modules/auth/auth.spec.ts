@@ -20,7 +20,7 @@ const getSignUpPayload = () => ({
   role: Role.USER,
 })
 
-describe('Auth Service', () => {
+describe('Auth Module', () => {
   describe('- Unit & Integration', () => {
     it('should sign up a user', async () => {
       const result = await AuthService.signUp({

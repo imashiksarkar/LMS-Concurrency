@@ -25,9 +25,13 @@ const requireAuth = <T extends boolean | undefined>(options?: {
         req.headers as Record<string, string>
       )['x-session']?.trim()
 
-      if (!sessionToken && !options?.passThrough)
+      if (!sessionToken && options?.passThrough) {
+        next()
+        return
+      }
+
+      if (!sessionToken)
         throw exres().error(401).message('Session token not found').exec()
-      else if (!sessionToken) return next()
 
       if (!SESSION.has(sessionToken))
         throw exres().error(401).message('Invalid session token').exec()

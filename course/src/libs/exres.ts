@@ -1,10 +1,12 @@
 import { STATUS_CODES } from 'node:http'
 
+type Data = Record<any, any> | Array<any>
+
 export class Res {
   success = false
   code = 500
   status = 'UNKNOWN'
-  data?: Record<string, unknown> | Array<unknown>
+  data?: Data
   message?: string[]
   error?: {
     message: string[]
@@ -12,8 +14,7 @@ export class Res {
       [key: string]: string[]
     }
   };
-
-  [key: string]: unknown
+  [key: string]: any
 }
 
 class ExRes {
@@ -63,7 +64,7 @@ class ExRes {
     }
   }
 
-  data = (data: Record<string, unknown> | Array<unknown>) => {
+  data = (data: Data) => {
     this.res.data = data
 
     const { message, exec, add } = this

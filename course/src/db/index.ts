@@ -1,3 +1,4 @@
+import { constants } from '@/config'
 import crypto from 'node:crypto'
 
 export type ID = crypto.UUID
@@ -54,3 +55,93 @@ export interface ICourse {
 }
 
 export const COURSE = new Map<ID, ICourse>()
+
+const SEATS_BOOKED = new Map<ID, number>() // courseId, seatsBooked
+
+enum ReservationStatus {
+  ALLOCATED = 'allocated',
+  EXPIRED = 'expired',
+  CANCELLED = 'cancelled',
+  CONFIRMED = 'confirmed',
+}
+
+export class Reservation {
+  private readonly SEATS_BOOKED = new Map<ID, number>() // courseId, seatsBooked
+  private readonly COURSE_RESERVATION = new Map<
+    ID,
+    Map<
+      ID,
+      {
+        courseId: ID
+        userId: ID
+        expiresAt: Date
+        status: ReservationStatus
+      }
+    >
+  >() // userId
+
+  reserve = async (courseId: ID, userId: ID) => {
+    const totalSeats = COURSE.get(courseId)?.seats ?? 0
+    const reservedSeats = this.SEATS_BOOKED.get(courseId) ?? 0
+    const isSeatsAvailable = reservedSeats < totalSeats
+
+    if (!isSeatsAvailable) return false
+
+    this.SEATS_BOOKED.set(courseId, reservedSeats + 1)
+
+    if (!this.COURSE_RESERVATION.has(userId))
+      this.COURSE_RESERVATION.set(userId, new Map())
+
+    if (this.COURSE_RESERVATION.get(userId)!.has(courseId)) {
+      const isReserved = [
+        ReservationStatus.CONFIRMED,
+        ReservationStatus.ALLOCATED,
+      ].includes(this.COURSE_RESERVATION.get(userId)!.get(courseId)!.status)
+
+      if (isReserved) return false
+    }
+
+    const expiresAt = new Date(
+      Date.now() + constants.COURSE_RESERVATION_EXPIRY_MINUTES * 60 * 1000
+    )
+
+    this.COURSE_RESERVATION.get(userId)!.set(userId, {
+      courseId,
+      userId,
+      expiresAt,
+      status: ReservationStatus.ALLOCATED,
+    })
+
+    const extendedExpiresAt = new Date(expiresAt.getTime())
+    extendedExpiresAt.setMinutes(extendedExpiresAt.getMinutes() + 1) // extend by 2 minutes
+    this.releaseCourseReservation(courseId, userId, extendedExpiresAt) // release in the background
+
+    return true
+  }
+
+  getAvailableSeats = async (courseId: ID) => {
+    const totalSeats = COURSE.get(courseId)?.seats ?? 0
+    const reservedSeats = this.SEATS_BOOKED.get(courseId) ?? 0
+    return totalSeats - reservedSeats
+  }
+
+  private readonly releaseCourseReservation = async (
+    courseId: ID,
+    userId: ID,
+    releaseAt: Date
+  ) => {
+    const now = Date.now()
+    const releaseAtTime = releaseAt.getTime()
+    const delay = releaseAtTime - now
+
+    setTimeout(() => {
+      const reservationInfo =
+        this.COURSE_RESERVATION.get(userId)?.get(courseId)?.status
+
+      if (reservationInfo !== ReservationStatus.ALLOCATED) return
+
+      this.SEATS_BOOKED.set(courseId, this.SEATS_BOOKED.get(courseId)! - 1)
+      this.COURSE_RESERVATION.get(userId)?.delete(courseId)
+    }, delay)
+  }
+}

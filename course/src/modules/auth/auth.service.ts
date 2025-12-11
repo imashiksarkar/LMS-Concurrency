@@ -99,7 +99,7 @@ export default class AuthService {
       id: id,
       email: payload.email,
       password: payload.password,
-      role: Role.USER,
+      role: payload.role,
       createdAt: new Date(),
       updatedAt: new Date(),
     })
