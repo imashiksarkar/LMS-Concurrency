@@ -18,6 +18,7 @@ import { CreateAuthDto, SignInDto, SignUpDto } from './auth.dtos'
 type User = IAuth & IUser
 type SignIn = {
   session: string
+  userId: ID
 }
 
 export default class AuthService {
@@ -60,7 +61,7 @@ export default class AuthService {
 
     SESSION.add(session)
 
-    return { session }
+    return { session, userId: user.id }
   }
 
   static readonly signOut = async (sessionToken: string) => {

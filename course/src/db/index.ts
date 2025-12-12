@@ -1,4 +1,5 @@
 import { constants } from '@/config'
+import { exres } from '@/libs'
 import crypto from 'node:crypto'
 
 export type ID = crypto.UUID
@@ -56,8 +57,6 @@ export interface ICourse {
 
 export const COURSE = new Map<ID, ICourse>()
 
-const SEATS_BOOKED = new Map<ID, number>() // courseId, seatsBooked
-
 enum ReservationStatus {
   ALLOCATED = 'allocated',
   EXPIRED = 'expired',
@@ -85,9 +84,8 @@ export class Reservation {
     const reservedSeats = this.SEATS_BOOKED.get(courseId) ?? 0
     const isSeatsAvailable = reservedSeats < totalSeats
 
-    if (!isSeatsAvailable) return false
-
-    this.SEATS_BOOKED.set(courseId, reservedSeats + 1)
+    if (!isSeatsAvailable)
+      throw exres().error(400).message('Seats not available').exec()
 
     if (!this.COURSE_RESERVATION.has(userId))
       this.COURSE_RESERVATION.set(userId, new Map())
@@ -98,14 +96,15 @@ export class Reservation {
         ReservationStatus.ALLOCATED,
       ].includes(this.COURSE_RESERVATION.get(userId)!.get(courseId)!.status)
 
-      if (isReserved) return false
+      if (isReserved)
+        throw exres().error(400).message('Already reserved').exec()
     }
 
     const expiresAt = new Date(
       Date.now() + constants.COURSE_RESERVATION_EXPIRY_MINUTES * 60 * 1000
     )
-
-    this.COURSE_RESERVATION.get(userId)!.set(userId, {
+    this.SEATS_BOOKED.set(courseId, reservedSeats + 1)
+    this.COURSE_RESERVATION.get(userId)!.set(courseId, {
       courseId,
       userId,
       expiresAt,
@@ -115,8 +114,6 @@ export class Reservation {
     const extendedExpiresAt = new Date(expiresAt.getTime())
     extendedExpiresAt.setMinutes(extendedExpiresAt.getMinutes() + 1) // extend by 2 minutes
     this.releaseCourseReservation(courseId, userId, extendedExpiresAt) // release in the background
-
-    return true
   }
 
   getAvailableSeats = async (courseId: ID) => {
@@ -125,7 +122,7 @@ export class Reservation {
     return totalSeats - reservedSeats
   }
 
-  private readonly releaseCourseReservation = async (
+  readonly releaseCourseReservation = async (
     courseId: ID,
     userId: ID,
     releaseAt: Date

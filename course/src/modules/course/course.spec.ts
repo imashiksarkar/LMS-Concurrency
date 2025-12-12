@@ -1,10 +1,11 @@
 import initApp from '@/app'
 import { AUTH, AUTH_EMAIL_INDEX, COURSE, Role, SESSION, USER } from '@/db'
+import { SignUpDto } from '@/modules/auth/auth.dtos'
 import { faker } from '@faker-js/faker'
 import { Express } from 'express'
 import request from 'supertest'
 import { CreateCourseDto } from './course.dtos'
-import { SignUpDto } from '@/modules/auth/auth.dtos'
+import CourseService from './course.service'
 
 beforeEach(() => {
   USER.clear()
@@ -60,6 +61,26 @@ describe('Course Module', () => {
       return {
         payload,
         session: instractor.body.data.session,
+      }
+    }
+
+    const userSignin = async () => {
+      const payload = getSignUpPayload()
+
+      await request(app).post('/auth/signup').send(payload).expect(201)
+
+      const user = await request(app)
+        .post('/auth/signin')
+        .send({
+          email: payload.email,
+          password: payload.password,
+        })
+        .expect(200)
+
+      return {
+        payload,
+        id: user.body.data.userId,
+        session: user.body.data.session,
       }
     }
 
@@ -354,6 +375,165 @@ describe('Course Module', () => {
 
       expect(updateCourseRes.status).toBe(403)
       expect(updateCourseRes.body.error.message[0]).toMatch(/not allowed/i)
+    })
+
+    it('should be able to reserve a course as a user', async () => {
+      const instractor = await instructorSignin()
+      const user = await userSignin()
+
+      // create a course
+      const coursepayload = getCreateCoursePayload()
+      const createCourseRes = await request(app)
+        .post('/courses')
+        .set('x-session', instractor.session)
+        .send(coursepayload)
+        .expect(201)
+      const courseId = createCourseRes.body.data.id
+
+      // reserve a course
+      const reserveCourseRes = await request(app)
+        .patch(`/courses/${courseId}/reserveSeat`)
+        .set('x-session', user.session)
+
+      expect(reserveCourseRes.status).toBe(200)
+      expect(reserveCourseRes.body.message[0]).toMatch(/successful/i)
+    })
+
+    it('should not allow a user to reserve twice', async () => {
+      const instractor = await instructorSignin()
+      const user = await userSignin()
+
+      // create a course
+      const coursePayload = getCreateCoursePayload()
+      coursePayload.seats = 5
+      const createCourseRes = await request(app)
+        .post('/courses')
+        .set('x-session', instractor.session)
+        .send(coursePayload)
+        .expect(201)
+      const courseId = createCourseRes.body.data.id
+
+      // reserve a course
+      await request(app)
+        .patch(`/courses/${courseId}/reserveSeat`)
+        .set('x-session', user.session)
+
+      const reserveCourseRes = await request(app)
+        .patch(`/courses/${courseId}/reserveSeat`)
+        .set('x-session', user.session)
+
+      expect(reserveCourseRes.status).toBe(400)
+      expect(reserveCourseRes.body.error.message[0]).toMatch(/reserved/i)
+    })
+
+    it('should allow a multiple user to reserve', async () => {
+      const instractor = await instructorSignin()
+      const user = await userSignin()
+      const user2 = await userSignin()
+
+      // create a course
+      const coursePayload = getCreateCoursePayload()
+      coursePayload.seats = 5
+      const createCourseRes = await request(app)
+        .post('/courses')
+        .set('x-session', instractor.session)
+        .send(coursePayload)
+        .expect(201)
+      const courseId = createCourseRes.body.data.id
+
+      // reserve a course
+      await request(app)
+        .patch(`/courses/${courseId}/reserveSeat`)
+        .set('x-session', user.session)
+
+      const reserveCourseRes = await request(app)
+        .patch(`/courses/${courseId}/reserveSeat`)
+        .set('x-session', user2.session)
+
+      expect(reserveCourseRes.status).toBe(200)
+      expect(reserveCourseRes.body.message[0]).toMatch(/successful/i)
+    })
+
+    it('should not allow a multiple user to reserve more than allowed (race condition)', async () => {
+      const instractor = await instructorSignin()
+
+      // create a course
+      const coursePayload = getCreateCoursePayload()
+      coursePayload.seats = 2
+      const createCourseRes = await request(app)
+        .post('/courses')
+        .set('x-session', instractor.session)
+        .send(coursePayload)
+        .expect(201)
+      const courseId = createCourseRes.body.data.id
+
+      // reserve a course
+      const concurrentRaces = 5
+
+      const sessions: string[] = await Promise.all(
+        Array.from({ length: concurrentRaces }, () => userSignin())
+      ).then((res) => res.map((r) => r.session))
+
+      const races = Array.from({ length: concurrentRaces }).map(
+        async (_, index) =>
+          request(app)
+            .patch(`/courses/${courseId}/reserveSeat`)
+            .set('x-session', sessions[index])
+      )
+
+      const res = await Promise.all(races).then((res) =>
+        res.map((r) => ({
+          success: r.body.success,
+          message: r.body?.message?.[0] ?? r.body?.error?.message?.[0],
+        }))
+      )
+
+      const success = res.filter((r) => r.success).length
+      const failure = res.filter((r) => !r.success).length
+
+      expect(success).toBe(coursePayload.seats)
+      expect(failure).toBe(concurrentRaces - coursePayload.seats)
+    })
+
+    const delay = (ms: number) => new Promise((res) => setTimeout(res, ms))
+
+    it('should allow a user to reserve after expiration', async () => {
+      const instractor = await instructorSignin()
+      const user = await userSignin()
+
+      // create a course
+      const coursePayload = getCreateCoursePayload()
+      coursePayload.seats = 2
+      const createCourseRes = await request(app)
+        .post('/courses')
+        .set('x-session', instractor.session)
+        .send(coursePayload)
+        .expect(201)
+      const courseId = createCourseRes.body.data.id
+
+      // reserve a course
+      await request(app)
+        .patch(`/courses/${courseId}/reserveSeat`)
+        .set('x-session', user.session)
+        .expect(200)
+      await request(app)
+        .patch(`/courses/${courseId}/reserveSeat`)
+        .set('x-session', user.session)
+        .expect(400)
+
+      CourseService.reservation.releaseCourseReservation(
+        courseId,
+        user.id,
+        new Date()
+      )
+      await delay(1000)
+
+      const res = await request(app)
+        .patch(`/courses/${courseId}/reserveSeat`)
+        .set('x-session', user.session)
+
+      expect(res.status).toBe(200)
+      expect(res.body.message[0]).toMatch(/successful/i)
     })
   })
 })

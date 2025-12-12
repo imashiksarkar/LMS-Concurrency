@@ -8,7 +8,9 @@ export const createCourseDto = z.object({
   seats: z.number().min(0),
 })
 
-export const updateCourseDto = createCourseDto.omit({ price: true }).partial()
+export const updateCourseDto = createCourseDto
+  .omit({ price: true, seats: true })
+  .partial()
 export const updateCoursePriceDto = createCourseDto.pick({ price: true })
 
 export const getCoursesDto = z.object({

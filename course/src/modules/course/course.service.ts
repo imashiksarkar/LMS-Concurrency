@@ -1,13 +1,12 @@
-import { Mutex } from 'async-mutex'
 import { COURSE, generateID, ICourse, ID, Reservation } from '@/db'
 import { exres } from '@/libs'
+import { Mutex } from 'async-mutex'
 import {
   CreateCourseDto,
   GetCoursesDto,
   UpdateCourseDto,
   UpdateCoursePriceDto,
 } from './course.dtos'
-import { constants } from '@/config'
 
 interface GetCoursesOptions extends GetCoursesDto {
   instructorId?: ID
@@ -15,7 +14,7 @@ interface GetCoursesOptions extends GetCoursesDto {
 
 export default class CourseService {
   private static readonly mutex = new Mutex()
-  private static readonly reservation = new Reservation()
+  static readonly reservation = new Reservation()
 
   static readonly createCourse = async (
     instructorId: ID,
@@ -122,19 +121,7 @@ export default class CourseService {
       const course = COURSE.get(courseId)
       if (!course) throw exres().error(404).message('Course not found').exec()
 
-      for (let attempt = 0; attempt < constants.BOOKING_ATTEMPTS; attempt++) {
-        const isReserved = await this.reservation.reserve(courseId, userId)
-
-        if (isReserved) return isReserved
-
-        await this.delay(10) // wait 10ms
-      }
-
-      throw exres().error(500).message('Failed to reserve course').exec()
+      await this.reservation.reserve(courseId, userId)
     })
-  }
-
-  private static readonly delay = async (ms: number) => {
-    return new Promise((resolve) => setTimeout(resolve, ms))
   }
 }
