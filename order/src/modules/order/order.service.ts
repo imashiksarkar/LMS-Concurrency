@@ -1,6 +1,7 @@
 import { constants, env } from '@/config'
 import { exres } from '@/libs'
 import { generateId, ID, IOrderInfo, ORDER, OrderStatus } from '@/db'
+import { PayOrderDto } from './order.dtos'
 
 interface IUser {
   id: string
@@ -109,6 +110,50 @@ export default class OrderService {
     return info
   }
 
+  // get all created orders by self
+
+  static readonly payOrder = async (
+    userSession: string,
+    orderId: ID,
+    cardInfo: PayOrderDto
+  ) => {
+    const user = await this.api<IUser>('/users/profile', {
+      method: 'GET',
+      headers: {
+        'x-session': userSession,
+      },
+    })
+    const userId = user.id as ID
+
+    const existingOrder = await this.getOrderById(userId, orderId)
+    if (!existingOrder) throw exres().error(400).message('invalid order').exec()
+
+    // create order
+    if (existingOrder && existingOrder.status !== OrderStatus.AWAITING_PAYMENT)
+      throw exres().error(400).message('invalid order to pay').exec()
+
+    const isValidMethod = this.isValidPaymentMethod(cardInfo)
+    if (!isValidMethod)
+      throw exres().error(400).message('invalid payment method').exec()
+
+    const order = ORDER.set(existingOrder.id, {
+      ...existingOrder,
+      updatedAt: new Date(),
+      status: OrderStatus.PAID,
+    })
+
+    const info = order.get(existingOrder.id)!
+
+    await this.api(`/courses/${existingOrder.courseId}/confirm`, {
+      method: 'PATCH',
+      headers: {
+        'x-session': userSession,
+      },
+    })
+
+    return info
+  }
+
   private static readonly api = async <T>(
     path: string,
     options?: RequestInit,
@@ -165,5 +210,31 @@ export default class OrderService {
     })
 
     return exists
+  }
+
+  private static readonly getOrderById = async (
+    userId: ID,
+    orderId: ID
+  ): Promise<IOrderInfo | null> => {
+    const order = ORDER.get(orderId)
+    if (!order || order.userId !== userId) return null
+
+    return order
+  }
+
+  private static readonly isValidPaymentMethod = async (
+    cardInfo: PayOrderDto
+  ) => {
+    const validCard = {
+      number: '4242 4242 4242 4242',
+      cvc: '123',
+      expiry: '12/12',
+    }
+
+    return (
+      cardInfo.number === validCard.number &&
+      cardInfo.cvc === validCard.cvc &&
+      cardInfo.expiry === validCard.expiry
+    )
   }
 }

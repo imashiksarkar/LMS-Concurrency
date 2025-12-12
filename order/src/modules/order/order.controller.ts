@@ -3,6 +3,7 @@ import { catchAsync, exres } from '@/libs'
 import { Request, Response, Router } from 'express'
 import z from 'zod'
 import OrderService from './order.service'
+import { payOrderDto } from './order.dtos'
 
 class OrderController {
   private static readonly prefix: string = '/orders'
@@ -51,6 +52,40 @@ class OrderController {
           .success(201)
           .data(newOrder)
           .message('Order created successfully')
+          .exec()
+
+        res.status(r.code).json(r)
+      })
+    )
+  }
+
+  private static readonly payOrder = async (
+    path = this.path('/:orderId/pay')
+  ) => {
+    this.router.post(
+      path,
+      catchAsync(async (req: Request, res: Response) => {
+        const { success, data: userSession } = z
+          .string()
+          .safeParse(req?.headers?.['x-session'])
+        if (!success) throw exres().error(401).message('Unauthorized').exec()
+
+        const orderId = z
+          .uuid('orderId is required as uuid')
+          .parse(req?.params?.orderId) as ID
+
+        const paymentInfo = payOrderDto.parse(req.body)
+
+        const paidOrder = await this.orderService.payOrder(
+          userSession,
+          orderId,
+          paymentInfo
+        )
+
+        const r = exres()
+          .success(200)
+          .data(paidOrder)
+          .message('Order paid successfully')
           .exec()
 
         res.status(r.code).json(r)
