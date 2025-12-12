@@ -1,8 +1,8 @@
 import { constants } from '@/config'
 import { exres } from '@/libs'
-import crypto from 'node:crypto'
+import type { UUID } from 'node:crypto'
 
-export type ID = crypto.UUID
+export type ID = UUID
 
 export enum Role {
   USER = 'user',
@@ -31,7 +31,7 @@ export interface ISession {
   email: string
   role: Role
   expiresAt: number
-  salt: crypto.UUID
+  salt: ID
 }
 
 export const AUTH_EMAIL_INDEX = new Map<string, ID>()
