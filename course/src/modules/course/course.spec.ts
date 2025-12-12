@@ -521,12 +521,9 @@ describe('Course Module', () => {
         .set('x-session', user.session)
         .expect(400)
 
-      CourseService.reservation.releaseCourseReservation(
-        courseId,
-        user.id,
-        new Date()
-      )
-      await delay(1000)
+      const now = new Date()
+      CourseService.reservation.releaseCourseReservation(courseId, user.id, now)
+      await delay(20)
 
       const res = await request(app)
         .patch(`/courses/${courseId}/reserveSeat`)
@@ -534,6 +531,43 @@ describe('Course Module', () => {
 
       expect(res.status).toBe(200)
       expect(res.body.message[0]).toMatch(/successful/i)
+    })
+
+    it('should not allow a user to reserve before expiration', async () => {
+      const instractor = await instructorSignin()
+      const user = await userSignin()
+
+      // create a course
+      const coursePayload = getCreateCoursePayload()
+      coursePayload.seats = 2
+      const createCourseRes = await request(app)
+        .post('/courses')
+        .set('x-session', instractor.session)
+        .send(coursePayload)
+        .expect(201)
+      const courseId = createCourseRes.body.data.id
+
+      // reserve a course
+      await request(app)
+        .patch(`/courses/${courseId}/reserveSeat`)
+        .set('x-session', user.session)
+        .expect(200)
+      await request(app)
+        .patch(`/courses/${courseId}/reserveSeat`)
+        .set('x-session', user.session)
+        .expect(400)
+
+      const now = new Date()
+      now.setMilliseconds(now.getMilliseconds() + 200)
+      CourseService.reservation.releaseCourseReservation(courseId, user.id, now)
+      await delay(170)
+
+      const res = await request(app)
+        .patch(`/courses/${courseId}/reserveSeat`)
+        .set('x-session', user.session)
+
+      expect(res.status).toBe(400)
+      expect(res.body.error.message[0]).toMatch(/reserved/i)
     })
   })
 })

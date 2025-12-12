@@ -121,7 +121,7 @@ export default class CourseService {
       const course = COURSE.get(courseId)
       if (!course) throw exres().error(404).message('Course not found').exec()
 
-      await this.reservation.reserve(courseId, userId)
+      return await this.reservation.reserve(courseId, userId)
     })
   }
 }
