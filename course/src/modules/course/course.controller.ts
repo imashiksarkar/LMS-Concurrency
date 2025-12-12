@@ -168,6 +168,29 @@ class CourseController {
       })
     )
   }
+
+  private static readonly confirmBooking = async (
+    path = this.path('/:courseId/confirm')
+  ) => {
+    this.router.patch(
+      path,
+      requireAuth(),
+      requireRole([Role.USER]),
+      catchAsync(async (req: ReqWithUser, res: Response) => {
+        const courseId = z.uuid().parse(req.params.courseId) as ID
+        const userId = z.uuid().parse(req.locals.user.id) as ID
+
+        await this.courseService.confirmBooking(courseId, userId)
+
+        const r = exres()
+          .success(200)
+          .data({ courseId })
+          .message('Course confirmed successfully.')
+          .exec()
+        res.status(r.code).json(r)
+      })
+    )
+  }
 }
 
 export default CourseController.module as Router

@@ -570,6 +570,62 @@ describe('Course Module', () => {
       expect(res.body.error.message[0]).toMatch(/reserved/i)
     })
 
-    it.todo('should make the slots permanently reserved after payment confirmation')
+    it('should make the slots permanently reserved after payment confirmation', async () => {
+      const instractor = await instructorSignin()
+      const user = await userSignin()
+
+      // create a course
+      const coursePayload = getCreateCoursePayload()
+      coursePayload.seats = 2
+      const createCourseRes = await request(app)
+        .post('/courses')
+        .set('x-session', instractor.session)
+        .send(coursePayload)
+        .expect(201)
+      const courseId = createCourseRes.body.data.id
+
+      await request(app)
+        .patch(`/courses/${courseId}/reserveSeat`)
+        .set('x-session', user.session)
+        .expect(200)
+
+      const confirmRes = await request(app)
+        .patch(`/courses/${courseId}/confirm`)
+        .set('x-session', user.session)
+
+      expect(confirmRes.status).toBe(200)
+      expect(confirmRes.body.message[0]).toMatch(/confirmed/i)
+    })
+
+    it('should not allow duplicte cinfirmation', async () => {
+      const instractor = await instructorSignin()
+      const user = await userSignin()
+
+      // create a course
+      const coursePayload = getCreateCoursePayload()
+      coursePayload.seats = 2
+      const createCourseRes = await request(app)
+        .post('/courses')
+        .set('x-session', instractor.session)
+        .send(coursePayload)
+        .expect(201)
+      const courseId = createCourseRes.body.data.id
+
+      await request(app)
+        .patch(`/courses/${courseId}/reserveSeat`)
+        .set('x-session', user.session)
+        .expect(200)
+
+      await request(app)
+        .patch(`/courses/${courseId}/confirm`)
+        .set('x-session', user.session)
+        .expect(200)
+      const confirmRes = await request(app)
+        .patch(`/courses/${courseId}/confirm`)
+        .set('x-session', user.session)
+
+      expect(confirmRes.status).toBe(400)
+      expect(confirmRes.body.error.message[0]).toMatch(/invalid/i)
+    })
   })
 })

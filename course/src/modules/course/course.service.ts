@@ -127,4 +127,10 @@ export default class CourseService {
       return await this.reservation.reserve(courseId, userId)
     }, 1)
   }
+
+  static readonly confirmBooking = async (courseId: ID, userId: ID) => {
+    return await lock.runExclusive(async () => {
+      return await this.reservation.confirmBooking(courseId, userId)
+    }, 1)
+  }
 }
