@@ -80,19 +80,21 @@ export default class CourseService {
     instructorId: ID,
     payload: UpdateCourseDto
   ): Promise<ICourse> => {
-    const course = COURSE.get(courseId)
-    if (!course) throw exres().error(404).message('Course not found').exec()
-    else if (course.instructorId !== instructorId)
-      throw exres().error(403).message('Not allowed').exec()
+    return await lock.runExclusive(async () => {
+      const course = COURSE.get(courseId)
+      if (!course) throw exres().error(404).message('Course not found').exec()
+      else if (course.instructorId !== instructorId)
+        throw exres().error(403).message('Not allowed').exec()
 
-    COURSE.set(courseId, {
-      ...course,
-      ...payload,
-      version: course.version + 1,
-      updatedAt: new Date(),
-    })
+      COURSE.set(courseId, {
+        ...course,
+        ...payload,
+        version: course.version + 1,
+        updatedAt: new Date(),
+      })
 
-    return COURSE.get(courseId)!
+      return COURSE.get(courseId)!
+    }, 2)
   }
 
   static readonly updateCoursePrice = async (
@@ -100,19 +102,21 @@ export default class CourseService {
     instractorId: ID,
     payload: UpdateCoursePriceDto
   ): Promise<ICourse> => {
-    const course = COURSE.get(courseId)
-    if (!course) throw exres().error(404).message('Course not found').exec()
-    else if (course.instructorId !== instractorId)
-      throw exres().error(403).message('Not allowed').exec()
+    return await lock.runExclusive(async () => {
+      const course = COURSE.get(courseId)
+      if (!course) throw exres().error(404).message('Course not found').exec()
+      else if (course.instructorId !== instractorId)
+        throw exres().error(403).message('Not allowed').exec()
 
-    COURSE.set(courseId, {
-      ...course,
-      ...payload,
-      version: course.version + 1,
-      updatedAt: new Date(),
-    })
+      COURSE.set(courseId, {
+        ...course,
+        ...payload,
+        version: course.version + 1,
+        updatedAt: new Date(),
+      })
 
-    return COURSE.get(courseId)!
+      return COURSE.get(courseId)!
+    }, 3)
   }
 
   static readonly reserveCourse = async (courseId: ID, userId: ID) => {
@@ -121,6 +125,6 @@ export default class CourseService {
       if (!course) throw exres().error(404).message('Course not found').exec()
 
       return await this.reservation.reserve(courseId, userId)
-    })
+    }, 1)
   }
 }
