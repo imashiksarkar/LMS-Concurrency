@@ -1,11 +1,15 @@
+import { constants, cors } from '@/config'
 import { exres } from '@/libs'
 import modules from '@/modules'
 import express, { type Request, type Response } from 'express'
+import helmet from 'helmet'
 import { errorHandler, notFoundHandler } from './middleware'
-import { constants } from '@/config'
 
 export default async () => {
   const app = express()
+
+  app.use(cors())
+  app.use(helmet())
 
   app.use(express.json())
 
