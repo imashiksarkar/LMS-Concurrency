@@ -23,7 +23,7 @@ const requireAuth = <T extends boolean | undefined>(options?: {
     async (req: ReqWithUser<T>, _res: Response, next: NextFunction) => {
       const sessionToken: string | undefined = (
         req.headers as Record<string, string>
-      )['x-session']?.trim()
+      )?.['x-session']?.trim()
 
       if (!sessionToken && options?.passThrough) {
         next()

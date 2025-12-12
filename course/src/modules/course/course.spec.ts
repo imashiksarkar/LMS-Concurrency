@@ -7,32 +7,34 @@ import request from 'supertest'
 import { CreateCourseDto } from './course.dtos'
 import CourseService from './course.service'
 
-beforeEach(() => {
-  USER.clear()
-  AUTH.clear()
-  AUTH_EMAIL_INDEX.clear()
-  SESSION.clear()
-  COURSE.clear()
-})
-
-const getSignUpPayload = () =>
-  ({
-    email: faker.internet.email(),
-    password: faker.internet.password(),
-    firstName: faker.person.firstName(),
-    lastName: faker.person.lastName(),
-    role: Role.USER as Role,
-  } satisfies SignUpDto)
-
-const getCreateCoursePayload = () =>
-  ({
-    content: faker.lorem.paragraph(),
-    title: faker.lorem.words(),
-    price: faker.number.int(),
-    seats: faker.number.int(),
-  } satisfies CreateCourseDto)
-
 describe('Course Module', () => {
+  beforeEach(() => {
+    USER.clear()
+    AUTH.clear()
+    AUTH_EMAIL_INDEX.clear()
+    SESSION.clear()
+    COURSE.clear()
+  })
+
+  const getSignUpPayload = () =>
+    ({
+      email: faker.internet.email(),
+      password: faker.internet.password(),
+      firstName: faker.person.firstName(),
+      lastName: faker.person.lastName(),
+      role: Role.USER as Role,
+    } satisfies SignUpDto)
+
+  const getCreateCoursePayload = () =>
+    ({
+      content: faker.lorem.paragraph(),
+      title: faker.lorem.words(),
+      price: faker.number.int(),
+      seats: faker.number.int(),
+    } satisfies CreateCourseDto)
+
+  const srvSession = 'd62f9ddd-7d28-4cb8-ae7b-2909217d9f82'
+
   describe('- E2E', () => {
     let app: Express
     beforeAll(async () => {
@@ -393,6 +395,7 @@ describe('Course Module', () => {
       // reserve a course
       const reserveCourseRes = await request(app)
         .patch(`/courses/${courseId}/reserveSeat`)
+        .set('x-srv-session', srvSession)
         .set('x-session', user.session)
 
       expect(reserveCourseRes.status).toBe(200)
@@ -416,10 +419,12 @@ describe('Course Module', () => {
       // reserve a course
       await request(app)
         .patch(`/courses/${courseId}/reserveSeat`)
+        .set('x-srv-session', srvSession)
         .set('x-session', user.session)
 
       const reserveCourseRes = await request(app)
         .patch(`/courses/${courseId}/reserveSeat`)
+        .set('x-srv-session', srvSession)
         .set('x-session', user.session)
 
       expect(reserveCourseRes.status).toBe(400)
@@ -444,10 +449,12 @@ describe('Course Module', () => {
       // reserve a course
       await request(app)
         .patch(`/courses/${courseId}/reserveSeat`)
+        .set('x-srv-session', srvSession)
         .set('x-session', user.session)
 
       const reserveCourseRes = await request(app)
         .patch(`/courses/${courseId}/reserveSeat`)
+        .set('x-srv-session', srvSession)
         .set('x-session', user2.session)
 
       expect(reserveCourseRes.status).toBe(200)
@@ -478,6 +485,7 @@ describe('Course Module', () => {
         async (_, index) =>
           request(app)
             .patch(`/courses/${courseId}/reserveSeat`)
+            .set('x-srv-session', srvSession)
             .set('x-session', sessions[index])
       )
 
@@ -514,10 +522,12 @@ describe('Course Module', () => {
       // reserve a course
       await request(app)
         .patch(`/courses/${courseId}/reserveSeat`)
+        .set('x-srv-session', srvSession)
         .set('x-session', user.session)
         .expect(200)
       await request(app)
         .patch(`/courses/${courseId}/reserveSeat`)
+        .set('x-srv-session', srvSession)
         .set('x-session', user.session)
         .expect(400)
 
@@ -527,6 +537,7 @@ describe('Course Module', () => {
 
       const res = await request(app)
         .patch(`/courses/${courseId}/reserveSeat`)
+        .set('x-srv-session', srvSession)
         .set('x-session', user.session)
 
       expect(res.status).toBe(200)
@@ -550,10 +561,12 @@ describe('Course Module', () => {
       // reserve a course
       await request(app)
         .patch(`/courses/${courseId}/reserveSeat`)
+        .set('x-srv-session', srvSession)
         .set('x-session', user.session)
         .expect(200)
       await request(app)
         .patch(`/courses/${courseId}/reserveSeat`)
+        .set('x-srv-session', srvSession)
         .set('x-session', user.session)
         .expect(400)
 
@@ -564,6 +577,7 @@ describe('Course Module', () => {
 
       const res = await request(app)
         .patch(`/courses/${courseId}/reserveSeat`)
+        .set('x-srv-session', srvSession)
         .set('x-session', user.session)
 
       expect(res.status).toBe(400)
@@ -586,11 +600,13 @@ describe('Course Module', () => {
 
       await request(app)
         .patch(`/courses/${courseId}/reserveSeat`)
+        .set('x-srv-session', srvSession)
         .set('x-session', user.session)
         .expect(200)
 
       const confirmRes = await request(app)
         .patch(`/courses/${courseId}/confirm`)
+        .set('x-srv-session', srvSession)
         .set('x-session', user.session)
 
       expect(confirmRes.status).toBe(200)
@@ -613,15 +629,18 @@ describe('Course Module', () => {
 
       await request(app)
         .patch(`/courses/${courseId}/reserveSeat`)
+        .set('x-srv-session', srvSession)
         .set('x-session', user.session)
         .expect(200)
 
       await request(app)
         .patch(`/courses/${courseId}/confirm`)
+        .set('x-srv-session', srvSession)
         .set('x-session', user.session)
         .expect(200)
       const confirmRes = await request(app)
         .patch(`/courses/${courseId}/confirm`)
+        .set('x-srv-session', srvSession)
         .set('x-session', user.session)
 
       expect(confirmRes.status).toBe(400)
@@ -644,6 +663,7 @@ describe('Course Module', () => {
 
       await request(app)
         .patch(`/courses/${courseId}/reserveSeat`)
+        .set('x-srv-session', srvSession)
         .set('x-session', user.session)
         .expect(200)
 
@@ -653,6 +673,7 @@ describe('Course Module', () => {
 
       const confirmRes = await request(app)
         .patch(`/courses/${courseId}/confirm`)
+        .set('x-srv-session', srvSession)
         .set('x-session', user.session)
 
       expect(confirmRes.status).toBe(400)

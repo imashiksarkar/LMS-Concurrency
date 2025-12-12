@@ -6,7 +6,7 @@ const envDto = z
       .enum(['development', 'test', 'production', 'dev', 'prod'])
       .default('test'),
     PORT: z.coerce.number().default(3000),
-    // OODER_SERVICE_URL: z.string().trim().min(2),
+    SERVICE_SESSION: z.uuid(),
   })
   .transform((e) => ({
     ...e,
@@ -18,7 +18,7 @@ const envDto = z
 const validated = envDto.safeParse(process.env)
 
 if (!validated.success) {
-  console.error(z.treeifyError(validated.error))
+  console.error(validated.error.message)
   process.exit(1)
 }
 

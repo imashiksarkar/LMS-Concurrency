@@ -1,11 +1,11 @@
-import { Request, Response, Router } from 'express'
-import { catchAsync, exres } from '@/libs'
-import CourseService from './course.service'
-import * as CourseDtos from './course.dtos'
-import { requireAuth, requireRole } from '@/middleware'
-import { ReqWithUser } from '@/middleware/requireAuth.middleware'
 import { ID, Role } from '@/db'
+import { catchAsync, exres } from '@/libs'
+import { requireAuth, requireRole, requireSrvAuth } from '@/middleware'
+import { ReqWithUser } from '@/middleware/requireAuth.middleware'
+import { Response, Router } from 'express'
 import z from 'zod'
+import * as CourseDtos from './course.dtos'
+import CourseService from './course.service'
 
 class CourseController {
   private static readonly prefix: string = '/courses'
@@ -150,6 +150,7 @@ class CourseController {
   ) => {
     this.router.patch(
       path,
+      requireSrvAuth(),
       requireAuth(),
       requireRole([Role.USER]),
       catchAsync(async (req: ReqWithUser, res: Response) => {
@@ -174,6 +175,7 @@ class CourseController {
   ) => {
     this.router.patch(
       path,
+      requireSrvAuth(),
       requireAuth(),
       requireRole([Role.USER]),
       catchAsync(async (req: ReqWithUser, res: Response) => {
