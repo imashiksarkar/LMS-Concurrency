@@ -157,12 +157,17 @@ class CourseController {
         const courseId = z.uuid().parse(req.params.courseId) as ID
         const userId = z.uuid().parse(req.locals.user.id) as ID
 
-        await this.courseService.reserveCourse(courseId, userId)
+        const { reservationInfo, isNew } =
+          await this.courseService.reserveCourse(courseId, userId)
 
         const r = exres()
           .success(200)
-          .data({ courseId })
-          .message('Course reserved successfully.')
+          .data(reservationInfo)
+          .message(
+            isNew
+              ? 'Course reserved successfully.'
+              : 'You have already reserved this course.'
+          )
           .message('Pay before expiration.')
           .exec()
         res.status(r.code).json(r)

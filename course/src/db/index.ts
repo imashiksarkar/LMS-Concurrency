@@ -87,17 +87,16 @@ export class Reservation {
     if (!isSeatsAvailable)
       throw exres().error(400).message('Seats not available').exec()
 
-    if (!this.COURSE_RESERVATION.has(userId))
-      this.COURSE_RESERVATION.set(userId, new Map())
+    const reservation = this.COURSE_RESERVATION.get(userId)
+    if (!reservation) this.COURSE_RESERVATION.set(userId, new Map())
 
-    if (this.COURSE_RESERVATION.get(userId)!.has(courseId)) {
+    const reservationInfo = reservation?.get(courseId)
+    if (reservationInfo) {
       const isReserved = [
         ReservationStatus.CONFIRMED,
         ReservationStatus.ALLOCATED,
-      ].includes(this.COURSE_RESERVATION.get(userId)!.get(courseId)!.status)
-
-      if (isReserved)
-        throw exres().error(400).message('Already reserved').exec()
+      ].includes(reservationInfo.status)
+      if (isReserved) return { reservationInfo, isNew: false }
     }
 
     const expiresAt = new Date(
@@ -114,6 +113,11 @@ export class Reservation {
     const extendedExpiresAt = new Date(expiresAt.getTime())
     extendedExpiresAt.setMinutes(extendedExpiresAt.getMinutes() + 1) // extend by 2 minutes
     this.releaseCourseReservation(courseId, userId, extendedExpiresAt) // release in the background
+
+    return {
+      reservationInfo: this.COURSE_RESERVATION.get(userId)!.get(courseId)!,
+      isNew: true,
+    }
   }
 
   readonly getAvailableSeats = async (courseId: ID) => {

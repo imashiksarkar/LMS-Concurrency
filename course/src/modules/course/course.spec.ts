@@ -427,8 +427,8 @@ describe('Course Module', () => {
         .set('x-srv-session', srvSession)
         .set('x-session', user.session)
 
-      expect(reserveCourseRes.status).toBe(400)
-      expect(reserveCourseRes.body.error.message[0]).toMatch(/reserved/i)
+      expect(reserveCourseRes.status).toBe(200)
+      expect(reserveCourseRes.body.message[0]).toMatch(/already reserved/i)
     })
 
     it('should allow a multiple user to reserve', async () => {
@@ -525,11 +525,6 @@ describe('Course Module', () => {
         .set('x-srv-session', srvSession)
         .set('x-session', user.session)
         .expect(200)
-      await request(app)
-        .patch(`/courses/${courseId}/reserveSeat`)
-        .set('x-srv-session', srvSession)
-        .set('x-session', user.session)
-        .expect(400)
 
       const now = new Date()
       CourseService.reservation.releaseCourseReservation(courseId, user.id, now)
@@ -564,11 +559,6 @@ describe('Course Module', () => {
         .set('x-srv-session', srvSession)
         .set('x-session', user.session)
         .expect(200)
-      await request(app)
-        .patch(`/courses/${courseId}/reserveSeat`)
-        .set('x-srv-session', srvSession)
-        .set('x-session', user.session)
-        .expect(400)
 
       const now = new Date()
       now.setMilliseconds(now.getMilliseconds() + 200)
@@ -580,8 +570,8 @@ describe('Course Module', () => {
         .set('x-srv-session', srvSession)
         .set('x-session', user.session)
 
-      expect(res.status).toBe(400)
-      expect(res.body.error.message[0]).toMatch(/reserved/i)
+      expect(res.status).toBe(200)
+      expect(res.body.message[0]).toMatch(/already reserved/i)
     })
 
     it('should make the slots permanently reserved after payment confirmation', async () => {
