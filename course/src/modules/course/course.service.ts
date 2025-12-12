@@ -1,19 +1,18 @@
 import { COURSE, generateID, ICourse, ID, Reservation } from '@/db'
 import { exres } from '@/libs'
-import { Mutex } from 'async-mutex'
 import {
   CreateCourseDto,
   GetCoursesDto,
   UpdateCourseDto,
   UpdateCoursePriceDto,
 } from './course.dtos'
+import { lock } from '@/config'
 
 interface GetCoursesOptions extends GetCoursesDto {
   instructorId?: ID
 }
 
 export default class CourseService {
-  private static readonly mutex = new Mutex()
   static readonly reservation = new Reservation()
 
   static readonly createCourse = async (
@@ -117,7 +116,7 @@ export default class CourseService {
   }
 
   static readonly reserveCourse = async (courseId: ID, userId: ID) => {
-    return await this.mutex.runExclusive(async () => {
+    return await lock.runExclusive(async () => {
       const course = COURSE.get(courseId)
       if (!course) throw exres().error(404).message('Course not found').exec()
 
