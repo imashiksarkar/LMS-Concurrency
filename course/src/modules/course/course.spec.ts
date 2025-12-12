@@ -627,5 +627,36 @@ describe('Course Module', () => {
       expect(confirmRes.status).toBe(400)
       expect(confirmRes.body.error.message[0]).toMatch(/invalid/i)
     })
+
+    it('should not allow cinfirmation after expiration', async () => {
+      const instractor = await instructorSignin()
+      const user = await userSignin()
+
+      // create a course
+      const coursePayload = getCreateCoursePayload()
+      coursePayload.seats = 2
+      const createCourseRes = await request(app)
+        .post('/courses')
+        .set('x-session', instractor.session)
+        .send(coursePayload)
+        .expect(201)
+      const courseId = createCourseRes.body.data.id
+
+      await request(app)
+        .patch(`/courses/${courseId}/reserveSeat`)
+        .set('x-session', user.session)
+        .expect(200)
+
+      const now = new Date()
+      CourseService.reservation.releaseCourseReservation(courseId, user.id, now)
+      await delay(10)
+
+      const confirmRes = await request(app)
+        .patch(`/courses/${courseId}/confirm`)
+        .set('x-session', user.session)
+
+      expect(confirmRes.status).toBe(400)
+      expect(confirmRes.body.error.message[0]).toMatch(/invalid/i)
+    })
   })
 })
