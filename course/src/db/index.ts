@@ -79,7 +79,7 @@ export class Reservation {
     >
   >() // userId
 
-  reserve = async (courseId: ID, userId: ID) => {
+  readonly reserve = async (courseId: ID, userId: ID) => {
     const totalSeats = COURSE.get(courseId)?.seats ?? 0
     const reservedSeats = this.SEATS_BOOKED.get(courseId) ?? 0
     const isSeatsAvailable = reservedSeats < totalSeats
@@ -116,7 +116,7 @@ export class Reservation {
     this.releaseCourseReservation(courseId, userId, extendedExpiresAt) // release in the background
   }
 
-  getAvailableSeats = async (courseId: ID) => {
+  readonly getAvailableSeats = async (courseId: ID) => {
     const totalSeats = COURSE.get(courseId)?.seats ?? 0
     const reservedSeats = this.SEATS_BOOKED.get(courseId) ?? 0
     return totalSeats - reservedSeats
@@ -140,5 +140,44 @@ export class Reservation {
       this.SEATS_BOOKED.set(courseId, this.SEATS_BOOKED.get(courseId)! - 1)
       this.COURSE_RESERVATION.get(userId)?.delete(courseId)
     }, delay)
+  }
+
+  private readonly isValidReservation = async (courseId: ID, userId: ID) => {
+    const reservationInfo = this.COURSE_RESERVATION.get(userId)?.get(courseId)
+
+    if (!reservationInfo) return false
+
+    const now = new Date().getTime()
+    const expiresAt = reservationInfo.expiresAt.getTime()
+    const timeDelta = expiresAt - now
+
+    if (reservationInfo?.status !== ReservationStatus.ALLOCATED) return false
+    if (timeDelta < 200) {
+      this.SEATS_BOOKED.set(courseId, this.SEATS_BOOKED.get(courseId)! - 1)
+      this.COURSE_RESERVATION.get(userId)?.delete(courseId)
+      return false
+    }
+
+    return true
+  }
+
+  private readonly deplay = (ms: number) =>
+    new Promise((resolve) => setTimeout(resolve, ms))
+
+  readonly confirmBooking = async (courseId: ID, userId: ID) => {
+    const isValid = await this.isValidReservation(courseId, userId)
+
+    this.releaseCourseReservation(courseId, userId, new Date())
+    await this.deplay(10)
+
+    const course = COURSE.get(courseId)
+    if (!course) throw exres().error(404).message('Course not found').exec()
+
+    COURSE.set(courseId, {
+      ...course,
+      seats: course.seats - 1,
+    })
+
+    if (!isValid) throw exres().error(400).message('Invalid reservation').exec()
   }
 }

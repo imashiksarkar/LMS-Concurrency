@@ -569,5 +569,7 @@ describe('Course Module', () => {
       expect(res.status).toBe(400)
       expect(res.body.error.message[0]).toMatch(/reserved/i)
     })
+
+    it.todo('should make the slots permanently reserved after payment confirmation')
   })
 })
