@@ -1,8 +1,8 @@
 import { exres } from '@/libs'
 import modules from '@/modules'
-
 import express, { type Request, type Response } from 'express'
 import { errorHandler, notFoundHandler } from './middleware'
+import { constants } from '@/config'
 
 export default async () => {
   const app = express()
@@ -10,21 +10,24 @@ export default async () => {
   app.use(express.json())
 
   app.get('/', (_req: Request, res: Response) => {
-    const r = exres().success(200).message('App is running fine 🚀').exec()
+    const r = exres()
+      .success(200)
+      .message(`${constants.SERVICE_NAME} service is running fine 🚀`)
+      .exec()
     res.status(r.code).json(r)
   })
 
   app.get('/health', (_req: Request, res: Response) => {
     const r = exres()
       .success(200)
-      .message('App is running fine 🚀')
       .data({
+        status: 'healthy',
+        service: constants.SERVICE_NAME,
         uptime: process.uptime(),
       })
       .exec()
     res.status(r.code).json(r)
   })
-
   app.use(modules)
 
   app.use(notFoundHandler())
