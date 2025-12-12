@@ -6,6 +6,7 @@ import { Express } from 'express'
 import request from 'supertest'
 import { CreateCourseDto } from './course.dtos'
 import CourseService from './course.service'
+import { env } from '@/config'
 
 describe('Course Module', () => {
   beforeEach(() => {
@@ -33,7 +34,7 @@ describe('Course Module', () => {
       seats: faker.number.int(),
     } satisfies CreateCourseDto)
 
-  const srvSession = 'd62f9ddd-7d28-4cb8-ae7b-2909217d9f82'
+  const srvSession = env.SERVICE_SESSION
 
   describe('- E2E', () => {
     let app: Express
