@@ -3,17 +3,13 @@ services:
     image: imashiksarkar/course-lms:v1.0.1
     env_file:
       - ./course/.env.dev
-    networks:
-      - lms
 
   order-srv:
     image: imashiksarkar/order-lms:v1.0.1
     env_file:
       - ./order/.env.dev
-    networks:
-      - lms
 
-  nginx:
+  nginx-srv:
     image: nginx:mainline-alpine3.23-slim
     ports:
       - '8080:80'
@@ -22,9 +18,3 @@ services:
     depends_on:
       - course-srv
       - order-srv
-    networks:
-      - lms
-
-networks:
-  lms:
-    driver: bridge
