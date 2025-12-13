@@ -53,7 +53,27 @@ class OrderController {
           .data(newOrder)
           .message('Order created successfully')
           .exec()
+        res.status(r.code).json(r)
+      })
+    )
+  }
 
+  private static readonly getOrders = async (path = this.path('/')) => {
+    this.router.get(
+      path,
+      catchAsync(async (req: Request, res: Response) => {
+        const { success, data: userSession } = z
+          .string()
+          .safeParse(req?.headers?.['x-session'])
+        if (!success) throw exres().error(401).message('Unauthorized').exec()
+
+        const orders = await this.orderService.getOrders(userSession)
+
+        const r = exres()
+          .success(200)
+          .data(orders)
+          .message('Orders retrieved successfully')
+          .exec()
         res.status(r.code).json(r)
       })
     )
@@ -69,25 +89,20 @@ class OrderController {
           .string()
           .safeParse(req?.headers?.['x-session'])
         if (!success) throw exres().error(401).message('Unauthorized').exec()
-
         const orderId = z
           .uuid('orderId is required as uuid')
           .parse(req?.params?.orderId) as ID
-
         const paymentInfo = payOrderDto.parse(req.body)
-
         const paidOrder = await this.orderService.payOrder(
           userSession,
           orderId,
           paymentInfo
         )
-
         const r = exres()
           .success(200)
           .data(paidOrder)
           .message('Order paid successfully')
           .exec()
-
         res.status(r.code).json(r)
       })
     )

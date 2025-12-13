@@ -1,4 +1,4 @@
-import { constants, env } from '@/config'
+import { constants, env, lock } from '@/config'
 import { exres } from '@/libs'
 import { generateId, ID, IOrderInfo, ORDER, OrderStatus } from '@/db'
 import { PayOrderDto } from './order.dtos'
@@ -28,6 +28,90 @@ export default class OrderService {
   private static readonly srvSession = env.SERVICE_SESSION
 
   static readonly createOrder = async (userSession: string, courseId: ID) => {
+    return await lock.runExclusive(async () => {
+      const user = await this.api<IUser>('/users/profile', {
+        method: 'GET',
+        headers: {
+          'x-session': userSession,
+        },
+      })
+      const userId = user.id as ID
+
+      const existingOrder = await this.getExistingOrder(userId, courseId)
+      if (existingOrder && existingOrder.status === OrderStatus.PAID)
+        throw exres()
+          .error(400)
+          .message('You already purchased this course.')
+          .exec()
+
+      // fetch course info from course service
+      const course = await this.api<Record<'data', ICourse>>(
+        `/courses/${courseId}`,
+        {
+          headers: {
+            'x-session': userSession,
+          },
+        }
+      ).then((res) => res.data)
+
+      await this.api(`/courses/${courseId}/reserveSeat`, {
+        method: 'PATCH',
+        headers: {
+          'x-session': userSession,
+        },
+      })
+
+      // // create order
+      if (
+        existingOrder &&
+        existingOrder.status === OrderStatus.AWAITING_PAYMENT
+      )
+        return existingOrder
+      else if (
+        existingOrder &&
+        [
+          OrderStatus.CANCELLED,
+          OrderStatus.EXPIRED,
+          OrderStatus.FAILED,
+        ].includes(existingOrder.status)
+      )
+        ORDER.delete(existingOrder.id)
+
+      const id = generateId()
+      const now = Date.now()
+      const expiresAt = new Date(
+        now + constants.COURSE_RESERVATION_EXPIRY_MINUTES * 60 * 1000
+      ) // 5 minutes
+      const cancelBy = new Date(
+        now + constants.COURSE_RESERVATION_CANCEL_EXPIRY_MINUTES * 60 * 1000
+      ) // 4 minutes
+      const payBy = new Date(
+        now + constants.COURSE_RESERVATION_EXPIRY_MINUTES * 60 * 1000
+      ) // 5 minutes
+      const order = ORDER.set(id, {
+        id,
+        courseId,
+        userId,
+        courseVersion: course.version,
+        expiresAt,
+        cancelBy,
+        payBy,
+        price: course.price,
+        status: OrderStatus.AWAITING_PAYMENT,
+        updatedAt: new Date(now),
+        createdAt: new Date(now),
+      })
+
+      this.releaseOrder(id, expiresAt)
+
+      const info = order.get(id)!
+
+      return info
+    })
+  }
+
+  // get all created orders by self
+  static readonly getOrders = async (userSession: string) => {
     const user = await this.api<IUser>('/users/profile', {
       method: 'GET',
       headers: {
@@ -36,122 +120,61 @@ export default class OrderService {
     })
     const userId = user.id as ID
 
-    const existingOrder = await this.getExistingOrder(userId, courseId)
-    if (existingOrder && existingOrder.status === OrderStatus.PAID)
-      throw exres()
-        .error(400)
-        .message('You already purchased this course.')
-        .exec()
+    const orders: IOrderInfo[] = []
 
-    // fetch course info from course service
-    const course = await this.api<Record<'data', ICourse>>(
-      `/courses/${courseId}`,
-      {
-        headers: {
-          'x-session': userSession,
-        },
-      }
-    ).then((res) => res.data)
-
-    await this.api(`/courses/${courseId}/reserveSeat`, {
-      method: 'PATCH',
-      headers: {
-        'x-session': userSession,
-      },
+    ORDER.forEach((order) => {
+      if (order.userId === userId) orders.push(order)
     })
 
-    // // create order
-    if (existingOrder && existingOrder.status === OrderStatus.AWAITING_PAYMENT)
-      return existingOrder
-    else if (
-      existingOrder &&
-      [OrderStatus.CANCELLED, OrderStatus.EXPIRED, OrderStatus.FAILED].includes(
-        existingOrder.status
-      )
-    )
-      ORDER.delete(existingOrder.id)
-
-    const id = generateId()
-    const now = Date.now()
-    const expiresAt = new Date(
-      now + constants.COURSE_RESERVATION_EXPIRY_MINUTES * 60 * 1000
-    ) // 5 minutes
-    const cancelBy = new Date(
-      now + constants.COURSE_RESERVATION_CANCEL_EXPIRY_MINUTES * 60 * 1000
-    ) // 4 minutes
-    const payBy = new Date(
-      now + constants.COURSE_RESERVATION_EXPIRY_MINUTES * 60 * 1000
-    ) // 5 minutes
-    const order = ORDER.set(id, {
-      id,
-      courseId,
-      userId,
-      courseVersion: course.version,
-      expiresAt,
-      cancelBy,
-      payBy,
-      price: course.price,
-      status: OrderStatus.AWAITING_PAYMENT,
-      updatedAt: new Date(now),
-      createdAt: new Date(now),
-    })
-
-    // TODO: add auto expiration
-
-    const info = order.get(id)!
-
-    // await this.api(`/courses/${courseId}/confirm`, {
-    //   method: 'PATCH',
-    //   headers: {
-    //     'x-session': userSession,
-    //   },
-    // })
-
-    return info
+    return orders
   }
-
-  // get all created orders by self
 
   static readonly payOrder = async (
     userSession: string,
     orderId: ID,
     cardInfo: PayOrderDto
   ) => {
-    const user = await this.api<IUser>('/users/profile', {
-      method: 'GET',
-      headers: {
-        'x-session': userSession,
-      },
+    return await lock.runExclusive(async () => {
+      const user = await this.api<IUser>('/users/profile', {
+        method: 'GET',
+        headers: {
+          'x-session': userSession,
+        },
+      })
+      const userId = user.id as ID
+
+      const existingOrder = await this.getOrderById(userId, orderId)
+      if (!existingOrder)
+        throw exres().error(400).message('invalid order').exec()
+
+      // create order
+      if (
+        existingOrder &&
+        existingOrder.status !== OrderStatus.AWAITING_PAYMENT
+      )
+        throw exres().error(400).message('invalid order to pay').exec()
+
+      const isValidMethod = this.isValidPaymentMethod(cardInfo)
+      if (!isValidMethod)
+        throw exres().error(400).message('invalid payment method').exec()
+
+      const order = ORDER.set(existingOrder.id, {
+        ...existingOrder,
+        updatedAt: new Date(),
+        status: OrderStatus.PAID,
+      })
+
+      const info = order.get(existingOrder.id)!
+
+      await this.api(`/courses/${existingOrder.courseId}/confirm`, {
+        method: 'PATCH',
+        headers: {
+          'x-session': userSession,
+        },
+      })
+
+      return info
     })
-    const userId = user.id as ID
-
-    const existingOrder = await this.getOrderById(userId, orderId)
-    if (!existingOrder) throw exres().error(400).message('invalid order').exec()
-
-    // create order
-    if (existingOrder && existingOrder.status !== OrderStatus.AWAITING_PAYMENT)
-      throw exres().error(400).message('invalid order to pay').exec()
-
-    const isValidMethod = this.isValidPaymentMethod(cardInfo)
-    if (!isValidMethod)
-      throw exres().error(400).message('invalid payment method').exec()
-
-    const order = ORDER.set(existingOrder.id, {
-      ...existingOrder,
-      updatedAt: new Date(),
-      status: OrderStatus.PAID,
-    })
-
-    const info = order.get(existingOrder.id)!
-
-    await this.api(`/courses/${existingOrder.courseId}/confirm`, {
-      method: 'PATCH',
-      headers: {
-        'x-session': userSession,
-      },
-    })
-
-    return info
   }
 
   private static readonly api = async <T>(
@@ -168,8 +191,6 @@ export default class OrderService {
             'x-srv-session': this.srvSession,
           },
         })
-
-        return res.json() as T
 
         if ([500, 502, 503, 504].includes(res.status) && retries !== 1) {
           await this.delay(1000) // wait for 1 second
@@ -236,5 +257,21 @@ export default class OrderService {
       cardInfo.cvc === validCard.cvc &&
       cardInfo.expiry === validCard.expiry
     )
+  }
+
+  private static readonly releaseOrder = async (
+    orderId: ID,
+    releaseAt: Date
+  ) => {
+    const now = Date.now()
+    const releaseAtTime = releaseAt.getTime()
+    const delay = releaseAtTime - now
+
+    setTimeout(() => {
+      const order = ORDER.get(orderId)
+      if (!(order && order.status === OrderStatus.AWAITING_PAYMENT)) return
+
+      ORDER.delete(orderId)
+    }, delay)
   }
 }
