@@ -1,13 +1,13 @@
 services:
   course-srv:
-    image: imashiksarkar/course-lms:v1.0.0
+    image: imashiksarkar/course-lms:v1.0.1
     env_file:
       - ./course/.env.dev
     networks:
       - lms
 
   order-srv:
-    image: imashiksarkar/order-lms:v1.0.0
+    image: imashiksarkar/order-lms:v1.0.1
     env_file:
       - ./order/.env.dev
     networks:
