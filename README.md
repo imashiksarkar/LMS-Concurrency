@@ -60,8 +60,7 @@ LMS-Concurrency/
 
 ## ER Diagram
 
-![course service](/diagrams/course.png)
-![course service](/diagrams/order.png)
+![course service](/diagrams/lms.png)
 
 ## Technologies Used
 
